@@ -5,198 +5,20 @@ It won't discuss all possible ways to set up a standalone node. The guide is tes
 
 This is work in progress and some parts may change with the upcoming node releases.
 
-# Basic Setup
-
-## Create User
-Create a user which you use instead of root (pick your own username). 
-```
-adduser john
-```
-
-Add user to sudo group
-```
-adduser john sudo
-```
-
-Change user and go to home directory
-```
-su - john
-```
-
-Lock root password to disable root login via password
-(don't confuse with `-d` it removes the password and allows to login without a password)
-```
-sudo passwd -l root
-```
-
-## Hostname
-
-You may want to set a different hostname to make distinguishing between your different nodes easier e.g.:
-```
-sudo hostnamectl set-hostname mainnet-1
-```
-
-## SSH
-Based on https://withblue.ink/2016/07/15/stop-ssh-brute-force-attempts.html
-
-### Public Key Authentication
-It is recommended to use ED25519 keys for SSH (same like Radix is using itself for signing transactions).
-Generate a key with a strong passphrase to protect it on your CLIENT system.
-
-On Linux:
-```
-ssh-keygen -t ed25519
-```
-On Windows PuTTYgen can be used to generate an ED25519 key.
-
-On the `SERVER` paste your generated public key (in OpenSSH format) into `authorized_keys`:
-```
-mkdir -p ~/.ssh && nano ~/.ssh/authorized_keys
-```
-
-Remove all "group" and "other" permissions and ensure ownership of `.ssh` is correct:
-```
-chmod -R go= ~/.ssh
-chown -R john:john ~/.ssh
-```
-
-Further details:
-- https://medium.com/risan/upgrade-your-ssh-key-to-ed25519-c6e8d60d3c54
-- https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys-on-ubuntu-20-04
-
-### Secure Configuration
-To secure SSH we:
- - Change the port (use your own custom port instead of `1234`).
-   Though this doesn't really make your node more secure, but stops a lot of low effort 'attacks' appearing in your log files.
- - Disable password authentication
- - Disable root login
- - Only allow our own user `john` to connect
-
-Modify or add the following settings to `/etc/ssh/sshd_config`.
-```
-sudo nano /etc/ssh/sshd_config
-```
-```
-Port 1234
-PasswordAuthentication no
-PermitRootLogin no
-AllowUsers john
-```
-
-
-### Restart SSH
-To activate the changes restart the SSH service
-```
-sudo systemctl restart sshd
-```
 
 ## Firewall (using UFW)
-First, we ensure that safe defaults are set (they should be in a clean installation) 
-```
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-```
 
-Second, we will only allow the custom SSH port and Radix network gossip on port 30000/tcp.
+Enable the ports.
 ```
 sudo ufw allow 1234/tcp
 sudo ufw allow 30000/tcp
 ```
-
-Afterwards we enable the firewall and check the status.
-```
-sudo ufw enable
-sudo ufw status
-```
-
-Be careful and verify whether you can successfully open a new SSH connection before
-closing your existing session. Now after you ensured you didn't lock yourself out of your
-server we can continue with setting up the Radix node itself.
-
 ## Update System
 Update package repository and update system:
 ```
 sudo apt update -y
 sudo apt-get dist-upgrade
 ```
-
-## Automatic system updates
-We want automatic unattended security updates (based on https://help.ubuntu.com/community/AutomaticSecurityUpdates)
-```
-sudo apt install unattended-upgrades
-sudo dpkg-reconfigure --priority=low unattended-upgrades
-```
-
-You can check whether it created the `/etc/apt/apt.conf.d/20auto-upgrades` file with the following content:
-```
-cat /etc/apt/apt.conf.d/20auto-upgrades
-```
-```
-APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Unattended-Upgrade "1";
-```
-
-If you want to configure optional email notifications you can check out this article 
-https://linoxide.com/enable-automatic-updates-on-ubuntu-20-04/.
-
-
-## Kernel live patching
-We will use `canonical-livepatch` for kernel live patching.
-First we need to check whether you are running the `linux-generic` kernel
-(or any of these `generic, lowlatency, aws, azure, oem, gcp, gke, gkeop`
-https://wiki.ubuntu.com/Kernel/Livepatch - then you can skip installing a different kernel
-and move to enabling `livepatch` directly).
-```
-uname -a
-```
-
-If you are not running linux-generic, you need to uninstall your current kernel
-(replace `linux-image-5.4.0-1040-kvm` with your kernel version) and then install linux-generic:
-https://www.reddit.com/r/Ubuntu/comments/7pujtv/difference_between_linuxgeneric_and_linuxkvm/
-```
-dpkg --list | grep linux-image
-sudo apt-get remove --purge linux-image-5.4.0-1040-kvm
-sudo apt install linux-generic
-sudo update-grub
-sudo reboot
-```
-
-Attach the machine to your Ubuntu account and activate livepatch (register for a token on https://ubuntu.com/security/livepatch)
-```
-sudo ua attach <your token>
-sudo snap install canonical-livepatch
-sudo ua enable livepatch
-```
-
-To reinstall your old kernel (if linux-kvm was previously used) - uninstall linux-generic kernel like above and then:
-```
-sudo apt install linux-kvm
-```
-
-Check for status
-```
-sudo canonical-livepatch status --verbose
-```
-
-Troubleshooting: maybe reinstalling the kernel if necessary
-```
-sudo apt-get install --reinstall linux-generic
-```
-
-## Shared Memory Read Only
-Based on https://www.techrepublic.com/article/how-to-enable-secure-shared-memory-on-ubuntu-server/
-
-Add the following line `/etc/fstab`:
-```
-none /run/shm tmpfs defaults,ro 0 0
-```
-
-Enable changes
-```
-sudo mount -a
-sudo reboot
-```
-
 # Radix Node
 We install the Radix node based on the standalone instructions form the documentation
 https://docs.radixdlt.com/main/node/systemd-install-node.html. 
