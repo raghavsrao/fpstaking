@@ -1,12 +1,12 @@
 module Page.Home exposing (..)
 
-import ArchiveApi exposing (StakePosition, Validator, getStakePositions, getStakePositionsRequest, getValidatorsRequest)
 import BigInt exposing (BigInt)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import GatewayApi exposing (StakePosition, Validator, getStakePositionsRequest, getValidatorsRequest)
 import Html.Attributes
 import Http
 import Loading exposing (LoaderType(..), defaultConfig)
@@ -47,7 +47,7 @@ init =
       , totalStake = BigInt.fromInt 0
       , stakedTokens = StakeAmount 0
       , stakedTokensRaw = ""
-      , validatorFee = 4
+      , validatorFee = 0
       , uptime = 100
       }
     , getValidatorsRequest GotValidators
@@ -96,7 +96,11 @@ update msg model =
 
         GotValidators validators ->
             case validators of
-                Ok validators_ ->
+                Ok allValidators ->
+                    let
+                        validators_ =
+                            List.filter .registered allValidators
+                    in
                     ( { model
                         | validators = Success <| addGroups validators_
                         , totalStake =
@@ -208,7 +212,7 @@ viewBenefits device model =
                 [ htmlAttribute <| Html.Attributes.style "justify-content" "center"
                 ]
                 [ viewBenefit device cloud_off "Decentralised" [ text "A core principle of decentralised ledgers (DLT) like Radix is decentralisation. That is why my validator is not hosted at common cloud providers but multiple smaller ones." ]
-                , viewBenefit device paid "Low Fees" [ text "My validator fee is low with only 3.4%. Low fees combined with high uptime ensure that your rewards are maximised. You can calculate your expected APY in my staking calculator." ]
+                , viewBenefit device paid "Low Fees" [ text "My validator fee is 3.4%. Low fees combined with high uptime ensure that your rewards are maximised. You can calculate your expected APY in my staking calculator." ]
                 , viewBenefit device language "High availability" [ text "Multiple backup nodes in different data centers allow to maximise uptime. I also developed seamless upgrade and failover scripts to achieve zero maintenance downtime." ]
                 , viewBenefit device favorite "Commitment" [ text "I want to make Radix a success and put a lot of effort into my validator. Also, I will only be staking on my own node and putting my money where my mouth is." ]
                 , viewBenefit device notifications_active "Realtime Alerts" [ text "The validator is constantly monitored 24/7 in real time to immediately trigger alerts in case of outtakes to minimise downtime." ]
@@ -337,15 +341,21 @@ viewStakingCalculator device model =
             uptimeFactor =
                 ((model.uptime / 100) - 0.98) / 0.02
 
-            stackingRewards =
+            stakingRewardsYearly =
                 (stakingShare / 100) * 300000000 * feeFactor * uptimeFactor
+
+            stakingRewardsMonthly =
+                stakingRewardsYearly / 12
+
+            stakingRewardsDaily =
+                stakingRewardsYearly / 365
 
             apy =
                 if tokensStaked == 0 then
                     0
 
                 else
-                    (stackingRewards / toFloat tokensStaked) * 100
+                    (stakingRewardsYearly / toFloat tokensStaked) * 100
           in
           case model.stakedTokens of
             WalletAddress _ Loading ->
@@ -366,8 +376,14 @@ viewStakingCalculator device model =
                         , { key = text "Staked"
                           , value = el [ alignRight ] <| text <| String.fromInt tokensStaked ++ " XRD"
                           }
-                        , { key = text "Rewards"
-                          , value = el [ alignRight, Font.semiBold ] <| text <| String.fromInt (round stackingRewards) ++ " XRD"
+                        , { key = text "Rewards (yearly)"
+                          , value = el [ alignRight, Font.semiBold ] <| text <| String.fromInt (round stakingRewardsYearly) ++ " XRD"
+                          }
+                        , { key = text "Rewards (monthly)"
+                          , value = el [ alignRight, Font.semiBold ] <| text <| String.fromInt (round stakingRewardsMonthly) ++ " XRD"
+                          }
+                        , { key = text "Rewards (daily)"
+                          , value = el [ alignRight, Font.semiBold ] <| text <| String.fromInt (round stakingRewardsDaily) ++ " XRD"
                           }
                         , { key = text "APY"
                           , value = el [ alignRight, Font.semiBold ] <| text <| formatWithDecimals 2 apy ++ " %"

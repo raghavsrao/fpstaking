@@ -1,6 +1,5 @@
 module Page.Validators exposing (..)
 
-import ArchiveApi exposing (Group, Validator, getValidatorsRequest)
 import BigInt exposing (BigInt)
 import Color.Interpolate exposing (interpolate)
 import Dict exposing (Dict)
@@ -11,6 +10,7 @@ import Element.Font as Font
 import Element.Input as Input
 import FormatNumber
 import FormatNumber.Locales exposing (Decimals(..), usLocale)
+import GatewayApi exposing (Group, Validator, getValidatorsRequest)
 import Html exposing (Html)
 import Html.Attributes
 import Http exposing (emptyBody, jsonBody)
@@ -76,18 +76,22 @@ addGroups validators =
         groups =
             [ buildGroup "Artistizen"
                 [ "rv1qdawnqw6l9dmsx287gvw3nl7tndx8agh9e0hmw24zdxnpdfp267exk8ljwu"
-                , "rv1qggt5w4g800k5w3du63g0j86u8ayaqkzdgyxfkw3uc93826zxef22gjr64m"
-                , "rv1q0m9329x6tywt3kggatrtr8ut8qvxqw9lsfw2w8phrvvv2qydw9xsk88slq"
-                , "rv1q0xq9jg3vcuvelflpdvkcvzvgtsd6k0tprf5u734nnl4xq06hecajc40rqw"
+                , "rv1qtztn2t7smu8nn3gk9cnh9cl66ju7z9kvmatpqyx5h295v4304xmwnjf43n"
+                , "rv1qwe3k036lrj79s06e8cx2kzcsrjmenxgug6d045jzer29sur3cfyv4r0a3t"
+
+                --, "rv1qggt5w4g800k5w3du63g0j86u8ayaqkzdgyxfkw3uc93826zxef22gjr64m"
+                --, "rv1q0m9329x6tywt3kggatrtr8ut8qvxqw9lsfw2w8phrvvv2qydw9xsk88slq"
+                --, "rv1q0xq9jg3vcuvelflpdvkcvzvgtsd6k0tprf5u734nnl4xq06hecajc40rqw"
                 ]
             , buildGroup "CaviarNine"
                 [ "rv1qdfhzmygv2vmxuc4702pttrpkep0vkc06a64zlenmvujn2yvq2u3y93e8ky"
                 , "rv1q29pg6kl80m43h0mewh8w8zfnhnpg50e3plwaexqx29vq2savjnzkdn89kp"
                 ]
-            , buildGroup "✅RadCrew"
+
+            {--, buildGroup "✅RadCrew"
                 [ "rv1qgaftlzpdxaacv3jmf0x9vlys3ap0mngfea8gsedph4ckaya0gqe6h9mv6f"
                 , "rv1qf53n265drur37lkqcun5sa8j0h0aqpvpuxh3r2nz7xzdskvwcy9zkpyh42"
-                ]
+                ]--}
             , buildGroup "ITS Australia and Ideomaker"
                 [ "rv1qgk7asalvem6y06asnxwt8rgx05gvl9vzrldnkshvat3uysxmkx9gmkv7y2"
                 , "rv1qg923hl7f725cs06eg5gmdcy4pfvpa8mfnjcw669traquj28c96z5w0rld0"
@@ -137,6 +141,18 @@ addGroups validators =
                 , "rv1qdpavrvzvrsljlh7u7mxg3zqszcya9yrpxk9d77grhtm4cxgwhlh69a2hkm"
                 , "rv1qgdue83wgezwrdsn2ngqnqpa74euykulngsqxernzkzcspkpula4kle75q6"
                 , "rv1qgcw6z26qr3mslfjkz82s7qtmgqnugq9amsnl8jwqzxhtrax4mqk7qsl6vu"
+                ]
+            , buildGroup "AMR Node 🇷🇺 and RadStaking 🇷🇺"
+                [ "rv1q03txhtq9d4v79len5jk65hzecgzdwqr94cu9pqd3v0r8dp923r9z37n7hw"
+                , "rv1qf3hq39mnxx6ln5yfy5gmgnm2vuxvpjxm8rhymqahq09n4vntyk77a5nfre"
+                ]
+            , buildGroup "DogeCube and RadixDLT Staking"
+                [ "rv1qgw68kqkryhgxvcvp04wfss0k76svxkqv3zvf57rcvrkuzdluu9ay4snzxc"
+                , "rv1qd9wlc66dzssnkzwja2mrnxsdezzkmxg00xqzrkn4039zpghaj0rs43mz63"
+                ]
+            , buildGroup "XRDScan"
+                [ "rv1q250v8v6a7s6594tlvv6ndkk880dc3mgxaqssa4jeet890qczty9vesjmvn"
+                , "rv1qw00edymt8x7ch63s4ukyncgq6ggr2krsdlyg6rz5g6zgt4a4qyacl2a5hy"
                 ]
             ]
 
@@ -225,7 +241,11 @@ update msg model =
 
         GotValidators validators ->
             case validators of
-                Ok validators_ ->
+                Ok allValidators ->
+                    let
+                        validators_ =
+                            List.filter .registered allValidators
+                    in
                     ( { model
                         | validators = Success <| addGroups validators_
                         , totalStake =
@@ -435,6 +455,11 @@ type SortOrder
     | Descending
 
 
+isOwnValidator : Validator -> Bool
+isOwnValidator validator =
+    validator.address == "rv1qfxktwkq9amdh678cxfynzt4zeua2tkh8nnrtcjpt7fyl0lmu8r3urllukm"
+
+
 viewValidators : Device -> List Validator -> Color -> SortOrder -> Bool -> Element Msg
 viewValidators device validators zoneColor sortOrder combine =
     let
@@ -524,7 +549,30 @@ viewValidators device validators zoneColor sortOrder combine =
                             el [ cellPadding, Font.medium, centerX, centerY ] <| text trimmedName
 
                         else
-                            link [ mouseOver [ Font.color zoneColor ], cellPadding, Font.medium, centerX, centerY ]
+                            let
+                                style =
+                                    if isOwnValidator validator then
+                                        [ cellPadding
+                                        , Font.medium
+                                        , centerX
+                                        , centerY
+                                        , Background.color darkShades
+                                        , padding small
+                                        , Font.color white
+                                        , mouseOver [ alpha 0.95 ]
+                                        , Border.rounded 5
+                                        , Border.shadow
+                                            { offset = ( toFloat xxSmall, toFloat xxSmall )
+                                            , size = 0
+                                            , blur = toFloat small
+                                            , color = blackAlpha 0.4
+                                            }
+                                        ]
+
+                                    else
+                                        [ mouseOver [ Font.color zoneColor ], cellPadding, Font.medium, centerX, centerY ]
+                            in
+                            link style
                                 { url = validator.infoUrl
                                 , label = text trimmedName
                                 }
